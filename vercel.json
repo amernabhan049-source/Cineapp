@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/release-holds",
+      "schedule": "*/1 * * * *"
+    }
+  ],
+  "framework": "nextjs"
+}
