@@ -14,6 +14,8 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { cinemaStore } from "@/lib/booking-service";
+
 export default function AdminBookingsAndScannerPage() {
   const [ticketCodeInput, setTicketCodeInput] = useState("");
   const [isScanning, setIsScanning] = useState(false);
@@ -24,11 +26,10 @@ export default function AdminBookingsAndScannerPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadAllBookings = async () => {
+  const loadAllBookings = () => {
     try {
-      const res = await fetch("/api/admin/stats");
-      const data = await res.json();
-      setBookings(data.recentBookings || []);
+      const stats = cinemaStore.getAdminStats();
+      setBookings(stats.recentBookings || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -40,7 +41,7 @@ export default function AdminBookingsAndScannerPage() {
     loadAllBookings();
   }, []);
 
-  const handleVerifyTicket = async (e: React.FormEvent) => {
+  const handleVerifyTicket = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ticketCodeInput.trim()) return;
 
@@ -49,21 +50,15 @@ export default function AdminBookingsAndScannerPage() {
     setScanError(null);
 
     try {
-      const res = await fetch("/api/admin/verify-ticket", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticketCode: ticketCodeInput.trim() }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setScanError(data.error || "Ticket verification failed.");
+      const res = cinemaStore.verifyAndCheckInTicket(ticketCodeInput.trim());
+      if (!res.success) {
+        setScanError(res.error || "Ticket verification failed.");
       } else {
-        setScanResult(data);
+        setScanResult(res);
       }
       loadAllBookings();
     } catch (e: any) {
-      setScanError(e.message || "Network error");
+      setScanError(e.message || "Verification error");
     } finally {
       setIsScanning(false);
     }

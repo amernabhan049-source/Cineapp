@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { MovieCard } from "@/components/movie-card";
 import { Film, Search, Filter, Sparkles } from "lucide-react";
+import { cinemaStore } from "@/lib/booking-service";
 import { SeedMovie, SeedGenre } from "@/db/seed-data";
 
 function MoviesContent() {
@@ -21,19 +22,17 @@ function MoviesContent() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
+    function load() {
       setIsLoading(true);
       try {
-        const params = new URLSearchParams();
-        if (searchTerm) params.set("search", searchTerm);
-        if (selectedGenre) params.set("genre", selectedGenre);
-        if (selectedStatus !== "ALL") params.set("status", selectedStatus);
-        if (selectedLanguage !== "ALL") params.set("language", selectedLanguage);
-
-        const res = await fetch(`/api/movies?${params.toString()}`);
-        const data = await res.json();
-        setMovies(data.movies || []);
-        setGenres(data.genres || []);
+        const filtered = cinemaStore.getMovies({
+          search: searchTerm || undefined,
+          genre: selectedGenre || undefined,
+          status: selectedStatus !== "ALL" ? (selectedStatus as any) : undefined,
+          language: selectedLanguage !== "ALL" ? selectedLanguage : undefined,
+        });
+        setMovies(filtered);
+        setGenres(Array.from(cinemaStore.genres.values()));
       } catch (e) {
         setMovies([]);
       } finally {

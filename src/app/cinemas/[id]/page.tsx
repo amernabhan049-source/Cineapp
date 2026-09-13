@@ -14,7 +14,10 @@ import {
   Ticket,
 } from "lucide-react";
 
-export const dynamic = "force-dynamic";
+export function generateStaticParams() {
+  const cinemas = cinemaStore.getCinemas();
+  return cinemas.map((c) => ({ id: c.id }));
+}
 
 export default async function CinemaDetailPage({
   params,

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
+import { cinemaStore } from "@/lib/booking-service";
 import {
   ChevronLeft,
   Clock,
@@ -100,26 +101,22 @@ export function SeatPickerClient({ initialData }: SeatPickerClientProps) {
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/bookings/hold", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          showtimeId: showtime.id,
-          seatIds: selectedSeatIds,
-          customerEmail: emailToUse,
-          customerName: nameToUse || "Valued Guest",
-          customerPhone: customerPhone || undefined,
-        }),
+      const holdRes = cinemaStore.createSeatHold({
+        showtimeId: showtime.id,
+        seatIds: selectedSeatIds,
+        userId: user?.id || "u-customer-0001",
+        customerEmail: emailToUse,
+        customerName: nameToUse || "Valued Guest",
+        customerPhone: customerPhone || undefined,
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMessage(data.error || "Failed to hold seats. Please try again.");
+      if (!holdRes.success || !holdRes.booking) {
+        setErrorMessage(holdRes.error || "Failed to hold seats. Please try again.");
         setIsHolding(false);
         return;
       }
 
-      router.push(`/checkout/${data.booking.id}`);
+      router.push(`/checkout/${holdRes.booking.id}`);
     } catch (e: any) {
       setErrorMessage(e.message || "Network error. Please try again.");
       setIsHolding(false);

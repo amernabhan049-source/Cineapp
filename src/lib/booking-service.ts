@@ -257,7 +257,73 @@ class CinemaDataStore {
     // Seed Showtimes across multiple days
     this.seedShowtimes();
 
+    // Pre-seed a sample booking and ticket for immediate viewing and static generation
+    const firstShowtime = Array.from(this.showtimes.values())[0];
+    if (firstShowtime) {
+      const sampleBookingId = "bkg-sample-1";
+      const sampleRef = "CB-8492-74";
+      const sampleBooking: BookingRecord = {
+        id: sampleBookingId,
+        bookingReference: sampleRef,
+        userId: "u-customer-0001",
+        showtimeId: firstShowtime.id,
+        status: "CONFIRMED",
+        totalAmountCents: 3200,
+        subtotalCents: 2800,
+        bookingFeeCents: 200,
+        taxCents: 200,
+        discountCents: 0,
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+        idempotencyKey: "demo-idemp-key-1",
+        customerEmail: "customer@cinebook.com",
+        customerName: "Alex Morgan",
+        customerPhone: "(212) 555-0199",
+        cancelledAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      this.bookings.set(sampleBookingId, sampleBooking);
+
+      const sampleItems: BookingItemRecord[] = [
+        {
+          id: "item-sample-1",
+          bookingId: sampleBookingId,
+          showtimeSeatId: `sts-${firstShowtime.id}-seat-1`,
+          seatId: "seat-1",
+          priceCents: 1400,
+          seatLabel: "D5",
+          seatType: "PREMIUM",
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "item-sample-2",
+          bookingId: sampleBookingId,
+          showtimeSeatId: `sts-${firstShowtime.id}-seat-2`,
+          seatId: "seat-2",
+          priceCents: 1400,
+          seatLabel: "D6",
+          seatType: "PREMIUM",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      this.bookingItems.set(sampleBookingId, sampleItems);
+
+      const sampleTicketId = "tkt-sample-1";
+      const ticketCode = `TKT-${sampleRef}-D5`;
+      const sampleTicket: TicketRecord = {
+        id: sampleTicketId,
+        bookingId: sampleBookingId,
+        ticketCode,
+        qrPayload: JSON.stringify({ code: ticketCode, ref: sampleRef, seat: "D5" }),
+        status: "VALID",
+        issuedAt: new Date().toISOString(),
+        checkedInAt: null,
+      };
+      this.tickets.set(sampleBookingId, [sampleTicket]);
+    }
+
     this.isInitialized = true;
+
   }
 
   private seedShowtimes() {
@@ -1309,6 +1375,10 @@ class CinemaDataStore {
     });
 
     return newShowtime;
+  }
+
+  getAuditLogs(): AuditLogRecord[] {
+    return [...this.auditLogs].reverse();
   }
 
   private logAudit(entry: Omit<AuditLogRecord, "id" | "createdAt">) {

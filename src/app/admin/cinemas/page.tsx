@@ -2,7 +2,6 @@ import React from "react";
 import { cinemaStore } from "@/lib/booking-service";
 import { Building2, MapPin, Phone, Tv, Sparkles } from "lucide-react";
 
-export const dynamic = "force-dynamic";
 
 export default function AdminCinemasPage() {
   const cinemas = cinemaStore.getCinemas();

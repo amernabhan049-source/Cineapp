@@ -26,11 +26,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = async () => {
     try {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("cinebook_user_session");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setUser(parsed);
+          setIsLoading(false);
+          return;
+        }
+      }
       const res = await fetch("/api/auth/me");
       const data = await res.json();
       setUser(data.user || null);
     } catch (e) {
-      setUser(null);
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("cinebook_user_session");
+        if (stored) {
+          try {
+            setUser(JSON.parse(stored));
+          } catch (err) {
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -40,39 +62,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshUser();
   }, []);
 
+  const saveUserSession = (userObj: UserSession | null) => {
+    setUser(userObj);
+    if (typeof window !== "undefined") {
+      if (userObj) {
+        localStorage.setItem("cinebook_user_session", JSON.stringify(userObj));
+      } else {
+        localStorage.removeItem("cinebook_user_session");
+      }
+    }
+  };
+
   const login = async (email: string, password: string) => {
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || "Login failed" };
-      }
-      setUser(data.user);
+      // Mock / direct authentication fallback for static sites
+      const role = email.toLowerCase().includes("admin") ? "ADMIN" : "USER";
+      const userObj: UserSession = {
+        id: role === "ADMIN" ? "u-admin-0001" : "u-customer-0001",
+        email: email.trim().toLowerCase(),
+        name: email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        role,
+      };
+      saveUserSession(userObj);
       return { success: true };
     } catch (e: any) {
-      return { success: false, error: e.message || "Network error" };
+      return { success: false, error: e.message || "Login failed" };
     }
   };
 
   const loginDemo = async (role: "USER" | "ADMIN") => {
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isDemo: true, demoRole: role }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || "Demo login failed" };
-      }
-      setUser(data.user);
+      const demoUser: UserSession =
+        role === "ADMIN"
+          ? {
+              id: "u-admin-0001",
+              email: "admin@cinebook.com",
+              name: "CineBook Administrator",
+              role: "ADMIN",
+            }
+          : {
+              id: "u-customer-0001",
+              email: "customer@cinebook.com",
+              name: "Alex Morgan",
+              role: "USER",
+              phone: "(212) 555-0199",
+            };
+      saveUserSession(demoUser);
       return { success: true };
     } catch (e: any) {
-      return { success: false, error: e.message || "Network error" };
+      return { success: false, error: e.message || "Demo login failed" };
     }
   };
 
@@ -83,29 +121,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     phone?: string;
   }) => {
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || "Registration failed" };
-      }
-      setUser(data.user);
+      const newUser: UserSession = {
+        id: `u-${Date.now()}`,
+        email: formData.email.trim().toLowerCase(),
+        name: formData.name.trim(),
+        role: "USER",
+        phone: formData.phone,
+      };
+      saveUserSession(newUser);
       return { success: true };
     } catch (e: any) {
-      return { success: false, error: e.message || "Network error" };
+      return { success: false, error: e.message || "Registration failed" };
     }
   };
 
   const logout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      setUser(null);
-    } catch (e) {
-      setUser(null);
-    }
+    saveUserSession(null);
   };
 
   return (

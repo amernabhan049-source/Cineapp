@@ -10,7 +10,6 @@ import {
   Tv,
 } from "lucide-react";
 
-export const dynamic = "force-dynamic";
 
 export default function CinemasPage() {
   const cinemas = cinemaStore.getCinemas();

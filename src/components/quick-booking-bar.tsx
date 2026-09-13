@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Film, Building2, Calendar, Clock, ArrowRight } from "lucide-react";
 import { SeedMovie, SeedCinema } from "@/db/seed-data";
+import { cinemaStore } from "@/lib/booking-service";
 
 interface QuickBookingBarProps {
   movies: SeedMovie[];
@@ -29,7 +30,7 @@ export function QuickBookingBar({ movies, cinemas }: QuickBookingBarProps) {
   // Initialize next 5 days
   useEffect(() => {
     const list: { label: string; value: string }[] = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
       const iso = d.toISOString().slice(0, 10);
@@ -50,16 +51,17 @@ export function QuickBookingBar({ movies, cinemas }: QuickBookingBarProps) {
   useEffect(() => {
     if (!selectedMovieId || !selectedCinemaId || !selectedDate) return;
 
-    async function loadTimes() {
+    function loadTimes() {
       setIsLoadingTimes(true);
       try {
-        const res = await fetch(
-          `/api/movies/${selectedMovieId}?cinemaId=${selectedCinemaId}&date=${selectedDate}`
+        const found = cinemaStore.getShowtimesForMovie(
+          selectedMovieId,
+          selectedCinemaId,
+          selectedDate
         );
-        const data = await res.json();
-        if (data.showtimes && data.showtimes.length > 0) {
-          setShowtimes(data.showtimes);
-          setSelectedShowtimeId(data.showtimes[0].id);
+        if (found && found.length > 0) {
+          setShowtimes(found);
+          setSelectedShowtimeId(found[0].id);
         } else {
           setShowtimes([]);
           setSelectedShowtimeId("");

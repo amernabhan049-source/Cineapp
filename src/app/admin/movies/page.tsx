@@ -3,15 +3,16 @@
 import React, { useState, useEffect } from "react";
 import { Film, Plus, Sparkles, AlertCircle, CheckCircle2, Clock, Star } from "lucide-react";
 import { SeedMovie } from "@/db/seed-data";
+import { cinemaStore } from "@/lib/booking-service";
 
 export default function AdminMoviesPage() {
-  const [movies, setMovies] = useState<SeedMovie[]>([]);
+  const [movies, setMovies] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Form State
+  // Form States
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [posterUrl, setPosterUrl] = useState("");
@@ -26,11 +27,10 @@ export default function AdminMoviesPage() {
   const [status, setStatus] = useState<"NOW_SHOWING" | "COMING_SOON">("NOW_SHOWING");
   const [genreSlugs, setGenreSlugs] = useState<string[]>(["action"]);
 
-  const loadMovies = async () => {
+  const loadMovies = () => {
     try {
-      const res = await fetch("/api/admin/movies");
-      const data = await res.json();
-      setMovies(data.movies || []);
+      const list = cinemaStore.getMovies();
+      setMovies(list || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -42,48 +42,45 @@ export default function AdminMoviesPage() {
     loadMovies();
   }, []);
 
-  const handleCreateMovie = async (e: React.FormEvent) => {
+  const handleCreateMovie = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setMessage(null);
 
     try {
-      const res = await fetch("/api/admin/movies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          description,
-          posterUrl: posterUrl || "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=800&q=80",
-          backdropUrl: backdropUrl || "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1920&q=80",
-          trailerUrl: trailerUrl || "https://www.youtube.com/watch?v=Way9Dexny3w",
-          durationMins: Number(durationMins),
-          rating,
-          imdbScore,
-          language,
-          director,
-          cast,
-          status,
-          genreSlugs,
-        }),
-      });
+      const newMovieId = `m-${Date.now()}`;
+      const newMovie = {
+        id: newMovieId,
+        title,
+        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        description,
+        posterUrl: posterUrl || "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=800&q=80",
+        backdropUrl: backdropUrl || "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1920&q=80",
+        trailerUrl: trailerUrl || "https://www.youtube.com/watch?v=Way9Dexny3w",
+        durationMins: Number(durationMins) || 120,
+        rating: rating as any,
+        imdbScore,
+        language,
+        director: director || "Director Name",
+        cast: cast || "Lead Cast",
+        status: status as any,
+        genreSlugs,
+        releaseDate: new Date().toISOString(),
+      };
 
-      const data = await res.json();
-      if (!res.ok) {
-        setMessage({ type: "error", text: data.error || "Failed to create movie" });
-        setIsSubmitting(false);
-        return;
-      }
-
-      setMessage({ type: "success", text: `Movie "${title}" successfully added!` });
+      cinemaStore.movies.set(newMovieId, newMovie as any);
+      setMessage({ type: "success", text: `Movie "${title}" published successfully!` });
       setIsModalOpen(false);
-      setIsSubmitting(false);
-      // Reset
+      loadMovies();
       setTitle("");
       setDescription("");
-      loadMovies();
+      setPosterUrl("");
+      setBackdropUrl("");
+      setDirector("");
+      setCast("");
     } catch (e: any) {
-      setMessage({ type: "error", text: e.message || "Network error" });
+      setMessage({ type: "error", text: e.message || "Failed to create movie" });
+    } finally {
       setIsSubmitting(false);
     }
   };

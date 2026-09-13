@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { Calendar, Plus, Clock, Building2, Film, CheckCircle2, AlertCircle } from "lucide-react";
 
+import { cinemaStore } from "@/lib/booking-service";
+
 export default function AdminShowtimesPage() {
   const [showtimes, setShowtimes] = useState<any[]>([]);
   const [movies, setMovies] = useState<any[]>([]);
@@ -20,26 +22,39 @@ export default function AdminShowtimesPage() {
   const [basePriceDollars, setBasePriceDollars] = useState("18.00");
   const [format, setFormat] = useState("IMAX_3D");
 
-  const loadData = async () => {
+  const loadData = () => {
     try {
-      const [stRes, mRes, cRes] = await Promise.all([
-        fetch("/api/admin/showtimes"),
-        fetch("/api/movies"),
-        fetch("/api/cinemas"),
-      ]);
-      const stData = await stRes.json();
-      const mData = await mRes.json();
-      const cData = await cRes.json();
+      const mList = cinemaStore.getMovies();
+      const cList = cinemaStore.getCinemas();
+      const stList = Array.from(cinemaStore.showtimes.values()).map((st) => {
+        const m = cinemaStore.getMovieById(st.movieId);
+        let foundCinema: any = null;
+        let foundScreen: any = null;
+        for (const c of cList) {
+          const scr = c.screens.find((s) => s.id === st.auditoriumId);
+          if (scr) {
+            foundCinema = c;
+            foundScreen = scr;
+            break;
+          }
+        }
+        return {
+          ...st,
+          movie: m,
+          cinema: foundCinema,
+          auditorium: foundScreen,
+        };
+      });
 
-      setShowtimes(stData.showtimes || []);
-      setMovies(mData.movies || []);
-      setCinemas(cData.cinemas || []);
+      setShowtimes(stList);
+      setMovies(mList);
+      setCinemas(cList);
 
-      if (mData.movies?.length > 0) setSelectedMovieId(mData.movies[0].id);
-      if (cData.cinemas?.length > 0) {
-        setSelectedCinemaId(cData.cinemas[0].id);
-        if (cData.cinemas[0].screens?.length > 0) {
-          setSelectedScreenId(cData.cinemas[0].screens[0].id);
+      if (mList.length > 0 && !selectedMovieId) setSelectedMovieId(mList[0].id);
+      if (cList.length > 0 && !selectedCinemaId) {
+        setSelectedCinemaId(cList[0].id);
+        if (cList[0].screens?.length > 0) {
+          setSelectedScreenId(cList[0].screens[0].id);
         }
       }
     } catch (e) {
@@ -51,7 +66,6 @@ export default function AdminShowtimesPage() {
 
   useEffect(() => {
     loadData();
-    // Default start time: tomorrow at 7pm
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(19, 0, 0, 0);
@@ -66,39 +80,53 @@ export default function AdminShowtimesPage() {
     }
   };
 
-  const handleScheduleShowtime = async (e: React.FormEvent) => {
+  const handleScheduleShowtime = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setMessage(null);
 
     try {
       const basePriceCents = Math.round(parseFloat(basePriceDollars) * 100);
+      const stId = `st-${Date.now()}`;
+      const start = new Date(startTime);
+      const end = new Date(start.getTime() + 140 * 60 * 1000);
 
-      const res = await fetch("/api/admin/showtimes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          movieId: selectedMovieId,
-          auditoriumId: selectedScreenId,
-          startTime: new Date(startTime).toISOString(),
-          basePriceCents,
-          format,
-        }),
-      });
+      const newSt: any = {
+        id: stId,
+        movieId: selectedMovieId,
+        auditoriumId: selectedScreenId,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        basePriceCents,
+        format: format as any,
+        status: "SCHEDULED",
+      };
 
-      const data = await res.json();
-      if (!res.ok) {
-        setMessage({ type: "error", text: data.error || "Failed to schedule showtime" });
-        setIsSubmitting(false);
-        return;
+      cinemaStore.showtimes.set(stId, newSt);
+
+      // Generate seat matrices
+      const seats = cinemaStore.auditoriumSeats.get(selectedScreenId) || [];
+      for (const seat of seats) {
+        const seatPrice = Math.round((basePriceCents * seat.basePriceMultiplier) / 100);
+        cinemaStore.showtimeSeats.set(`${stId}_${seat.id}`, {
+          id: `sts-${stId}-${seat.id}`,
+          showtimeId: stId,
+          seatId: seat.id,
+          status: "AVAILABLE",
+          holdExpiresAt: null,
+          heldByUserId: null,
+          priceCents: seatPrice,
+          version: 1,
+          updatedAt: new Date().toISOString(),
+        });
       }
 
       setMessage({ type: "success", text: "Showtime successfully scheduled with all seat matrices generated!" });
       setIsModalOpen(false);
-      setIsSubmitting(false);
       loadData();
     } catch (e: any) {
-      setMessage({ type: "error", text: e.message || "Network error" });
+      setMessage({ type: "error", text: e.message || "Failed to schedule showtime" });
+    } finally {
       setIsSubmitting(false);
     }
   };

@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   Sparkles,
 } from "lucide-react";
+import { cinemaStore } from "@/lib/booking-service";
 
 interface CheckoutClientProps {
   initialBooking: any;
@@ -110,30 +111,25 @@ export function CheckoutClient({ initialBooking }: CheckoutClientProps) {
       .slice(2, 6)}`;
 
     try {
-      const res = await fetch("/api/payments/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookingId: booking.id,
-          idempotencyKey,
-          promoCode: appliedPromo || undefined,
-          paymentMethod: {
-            cardNumber,
-            lastFour: cardNumber.replace(/\s+/g, "").slice(-4) || "4242",
-            cardBrand: "Visa Test",
-          },
-        }),
+      const payRes = cinemaStore.confirmPaymentAndBooking({
+        bookingId: booking.id,
+        userId: booking.userId || "u-customer-0001",
+        idempotencyKey,
+        promoCode: appliedPromo || undefined,
+        paymentMethod: {
+          cardNumber,
+          lastFour: cardNumber.replace(/\s+/g, "").slice(-4) || "4242",
+          cardBrand: "Visa Test",
+        },
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMessage(data.error || "Payment failed. Please try again.");
+      if (!payRes.success) {
+        setErrorMessage(payRes.error || "Payment failed. Please try again.");
         setIsProcessing(false);
         return;
       }
 
-      // Redirect to first ticket or booking ticket view
-      const firstTicketId = data.tickets?.[0]?.id || data.booking.id;
+      const firstTicketId = payRes.tickets?.[0]?.id || payRes.booking?.id || booking.id;
       router.push(`/tickets/${firstTicketId}`);
     } catch (e: any) {
       setErrorMessage(e.message || "Network error. Please try again.");

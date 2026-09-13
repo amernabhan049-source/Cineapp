@@ -3,16 +3,17 @@
 import React, { useState, useEffect } from "react";
 import { ScrollText, ShieldCheck, Clock, User, CheckCircle2 } from "lucide-react";
 
+import { cinemaStore } from "@/lib/booking-service";
+
 export default function AdminAuditLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchLogs() {
+    function fetchLogs() {
       try {
-        const res = await fetch("/api/admin/audit-logs");
-        const data = await res.json();
-        setLogs(data.logs || []);
+        const list = cinemaStore.getAuditLogs();
+        setLogs(list || []);
       } catch (e) {
         console.error(e);
       } finally {

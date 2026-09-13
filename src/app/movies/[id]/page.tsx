@@ -14,7 +14,10 @@ import {
 } from "lucide-react";
 import { ShowtimeSectionClient } from "./showtime-client";
 
-export const dynamic = "force-dynamic";
+export function generateStaticParams() {
+  const movies = cinemaStore.getMovies();
+  return movies.map((m) => ({ id: m.id }));
+}
 
 export default async function MovieDetailPage({
   params,

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { cinemaStore } from "@/lib/booking-service";
 
+export function generateStaticParams() {
+  return cinemaStore.getCinemas().map((c) => ({ id: c.id }));
+}
+
 export async function GET(
   req: Request,
   { params }: { params: { id: string } }

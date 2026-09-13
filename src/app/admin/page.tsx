@@ -15,18 +15,17 @@ import {
   Clock,
 } from "lucide-react";
 
+import { cinemaStore } from "@/lib/booking-service";
+
 export default function AdminOverviewPage() {
   const [stats, setStats] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function loadStats() {
+    function loadStats() {
       try {
-        const res = await fetch("/api/admin/stats");
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
-        }
+        const data = cinemaStore.getAdminStats();
+        setStats(data);
       } catch (e) {
         console.error(e);
       } finally {

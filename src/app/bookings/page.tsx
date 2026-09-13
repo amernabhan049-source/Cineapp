@@ -19,6 +19,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 
+import { cinemaStore } from "@/lib/booking-service";
+
 export default function BookingsPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
@@ -32,13 +34,10 @@ export default function BookingsPage() {
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState<string | null>(null);
 
-  const fetchBookings = async () => {
+  const fetchBookings = () => {
     try {
-      const res = await fetch("/api/bookings");
-      if (res.ok) {
-        const data = await res.json();
-        setBookings(data.bookings || []);
-      }
+      const userBookings = cinemaStore.getUserBookings(user?.id || "u-customer-0001");
+      setBookings(userBookings || []);
     } catch (e) {
       setBookings([]);
     } finally {
@@ -62,29 +61,28 @@ export default function BookingsPage() {
     setCancelError(null);
 
     try {
-      const res = await fetch(`/api/bookings/${cancellingBooking.id}/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "User requested refund and cancellation" }),
+      const cancelRes = cinemaStore.cancelBooking({
+        bookingId: cancellingBooking.id,
+        userId: user?.id || "u-customer-0001",
+        reason: "User requested refund and cancellation",
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setCancelError(data.error || "Failed to cancel booking.");
+      if (!cancelRes.success) {
+        setCancelError(cancelRes.error || "Failed to cancel booking.");
         setIsSubmittingCancel(false);
         return;
       }
 
       setCancelSuccessMsg(
         `Booking cancelled successfully. Refund of $${(
-          data.refundAmountCents / 100
+          (cancelRes.refundAmountCents || 0) / 100
         ).toFixed(2)} processed to original payment method.`
       );
       setCancellingBooking(null);
       setIsSubmittingCancel(false);
       fetchBookings();
     } catch (e: any) {
-      setCancelError(e.message || "Network error");
+      setCancelError(e.message || "Cancellation error");
       setIsSubmittingCancel(false);
     }
   };
